@@ -140,6 +140,18 @@ app.patch("/orders/:id/status", async (req, res) => {
 
   order.status = status;
   await db.push("/Order", orders);
+
+  if (status === "shipped") {
+    setTimeout(async () => {
+      const orders: Order[] = await db.getData("/Order");
+      const shipped = orders.find((o) => o.id === order.id);
+      if (shipped && shipped.status === "shipped") {
+        shipped.status = "delivered";
+        await db.push("/Order", orders);
+      }
+    }, 20000);
+  }
+
   res.json(order);
 });
 
