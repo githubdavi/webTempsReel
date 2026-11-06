@@ -39,6 +39,25 @@ app.use(express.static("public"));
 const db = new JsonDB(new Config("data/db.json", true, true, "/"));
 const PORT = Number(process.env.PORT) || 3000;
 
+const clients = new Set<express.Response>();
+
+app.get("/stream", (_req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  res.flushHeaders();
+  clients.add(res);
+  res.on("close", () => clients.delete(res));
+});
+
+let id = 0;
+function broadcast(event: string, data: unknown) {
+  const msg = `id: ${++id}\nevent: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of clients) res.write(msg);
+}
+
 app.get("/users", async (req, res) => {
   try {
     res.status(200).json(await db.getData("/user"));
@@ -106,6 +125,8 @@ app.post("/orders", async (req, res) => {
 
   await db.push("/Product", products);
   await db.push("/Order", orders);
+  broadcast("order-created", order);
+  broadcast("stock", product);
   res.status(201).json(order);
 });
 
@@ -129,6 +150,7 @@ app.patch("/orders/:id/status", async (req, res) => {
     if (!product) return res.status(404).json({ error: "Produit introuvable" });
     product.stock += order.quantity;
     await db.push("/Product", products);
+    broadcast("stock", product);
   } else if (
     !(order.status === "preparing" && status === "shipped") &&
     !(order.status === "shipped" && status === "delivered")
@@ -140,6 +162,7 @@ app.patch("/orders/:id/status", async (req, res) => {
 
   order.status = status;
   await db.push("/Order", orders);
+  broadcast(status === "cancelled" ? "order-cancelled" : "order-status", order);
 
   if (status === "shipped") {
     setTimeout(async () => {
@@ -148,6 +171,7 @@ app.patch("/orders/:id/status", async (req, res) => {
       if (shipped && shipped.status === "shipped") {
         shipped.status = "delivered";
         await db.push("/Order", orders);
+        broadcast("order-status", shipped);
       }
     }, 20000);
   }

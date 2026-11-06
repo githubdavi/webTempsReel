@@ -14,6 +14,7 @@
 
   <p id="message"></p>
   <pre id="data"></pre>
+  <pre id="events"></pre>
 
   <script>
     async function load() {
@@ -47,6 +48,17 @@
     }
 
     load();
-    setInterval(load, 2000);
+
+    const events = new EventSource("/stream");
+
+    function onEvent(e) {
+      document.getElementById("events").textContent += e.type + " " + e.data + "\n";
+      load();
+    }
+
+    events.addEventListener("order-created", onEvent);
+    events.addEventListener("order-status", onEvent);
+    events.addEventListener("order-cancelled", onEvent);
+    events.addEventListener("stock", onEvent);
   </script>
 </body>
