@@ -1,1 +1,52 @@
-<h1>hello</h1>
+<body>
+  <h1>Boutique</h1>
+
+  <input id="userId" placeholder="userId">
+  <input id="productId" placeholder="productId">
+  <input id="quantity" placeholder="quantity">
+  <button onclick="createOrder()">Commander</button>
+
+  <br>
+
+  <input id="orderId" placeholder="orderId">
+  <input id="status" placeholder="status">
+  <button onclick="setStatus()">Changer statut</button>
+
+  <p id="message"></p>
+  <pre id="data"></pre>
+
+  <script>
+    async function load() {
+      const products = await (await fetch("/products")).json();
+      const orders = await (await fetch("/orders")).json();
+      document.getElementById("data").textContent = JSON.stringify({ products, orders }, null, 2);
+    }
+
+    async function send(url, method, body) {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      document.getElementById("message").textContent = res.status + " " + JSON.stringify(await res.json());
+      load();
+    }
+
+    function createOrder() {
+      send("/orders", "POST", {
+        userId: document.getElementById("userId").value,
+        productId: document.getElementById("productId").value,
+        quantity: Number(document.getElementById("quantity").value),
+      });
+    }
+
+    function setStatus() {
+      send("/orders/" + document.getElementById("orderId").value + "/status", "PATCH", {
+        status: document.getElementById("status").value,
+      });
+    }
+
+    load();
+    setInterval(load, 2000);
+  </script>
+</body>
